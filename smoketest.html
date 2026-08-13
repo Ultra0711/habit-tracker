@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Stage 2 Supabase CRUD Smoke Test</title>
+<style>
+  body { font-family: -apple-system, sans-serif; background: #14151f; color: #eef0f7; padding: 32px; max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 18px; }
+  p.hint { color: #9297ad; font-size: 13px; }
+  #log { display: flex; flex-direction: column; gap: 6px; margin-top: 20px; font-size: 14px; font-family: ui-monospace, monospace; }
+  .pass { color: #2fd9a8; }
+  .fail { color: #ff8787; }
+</style>
+</head>
+<body>
+  <h1>Stage 2 — Supabase CRUD Smoke Test</h1>
+  <p class="hint">Exercises db.js directly against your Supabase project. Not part of the main app; open via <code>npm run dev</code> then visit <code>/smoketest.html</code>.</p>
+  <div id="log"></div>
+  <script type="module" src="/src/lib/db.smoketest.js"></script>
+</body>
+</html>

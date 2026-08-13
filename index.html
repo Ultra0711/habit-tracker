@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Habit Tracker</title>
+</head>
+<body>
+
+<canvas id="confettiCanvas"></canvas>
+<div class="toast-container" id="toastContainer"></div>
+
+<header class="app-header">
+  <div class="app-header-inner">
+    <div class="brand">
+      <div class="logo">&#127793;</div>
+      <div>
+        <h1>Habit Tracker</h1>
+        <p class="sub" id="dateSub">Your daily execution dashboard</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span class="sub" id="userEmailLabel" style="display:none;"></span>
+      <button class="btn btn-secondary" id="signOutBtn" title="Sign out" style="display:none;">Sign out</button>
+      <button class="theme-toggle" id="themeToggle" title="Toggle theme">&#127769;</button>
+    </div>
+  </div>
+</header>
+
+<div class="auth-gate" id="authGate">
+  <div class="auth-gate-card">
+    <div class="logo" style="width:48px;height:48px;border-radius:14px;margin:0 auto 16px;font-size:24px;">&#127793;</div>
+    <h1>Habit Tracker</h1>
+    <p class="section-sub" id="authGateMessage">Sign in to sync your habits across devices.</p>
+
+    <form id="authForm">
+      <div class="form-row">
+        <label for="authEmail">Email</label>
+        <input type="email" id="authEmail" placeholder="you@example.com" autocomplete="email" required>
+      </div>
+      <div class="form-row">
+        <label for="authPassword">Password</label>
+        <div class="password-field">
+          <input type="password" id="authPassword" placeholder="At least 6 characters" autocomplete="current-password" minlength="6" required>
+          <button type="button" class="password-toggle" data-target="authPassword" title="Show password">&#128065;</button>
+        </div>
+      </div>
+      <div class="modal-footer" style="margin-top:6px;">
+        <button type="submit" class="btn btn-secondary" id="authSignUpBtn">Create account</button>
+        <button type="submit" class="btn btn-primary" id="authLoginBtn">Log in</button>
+      </div>
+    </form>
+    <button type="button" class="icon-btn" id="forgotPasswordLink" style="width:auto;height:auto;margin-top:10px;font-size:12.5px;color:var(--accent);font-weight:600;">Forgot password?</button>
+    <p class="form-hint" id="authStatus"></p>
+  </div>
+
+  <div class="auth-gate-card" id="resetRequestCard" style="display:none;">
+    <h1>Reset your password</h1>
+    <p class="section-sub">Enter your email and we'll send you a reset link.</p>
+    <form id="resetRequestForm">
+      <div class="form-row">
+        <label for="resetEmail">Email</label>
+        <input type="email" id="resetEmail" placeholder="you@example.com" autocomplete="email" required>
+      </div>
+      <div class="modal-footer" style="margin-top:6px;">
+        <button type="button" class="btn btn-secondary" id="resetCancelBtn">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="resetRequestBtn">Send reset link</button>
+      </div>
+    </form>
+    <p class="form-hint" id="resetRequestStatus"></p>
+  </div>
+
+  <div class="auth-gate-card" id="resetConfirmCard" style="display:none;">
+    <h1>Choose a new password</h1>
+    <p class="section-sub">You followed a password-reset link. Set a new password to finish.</p>
+    <form id="resetConfirmForm">
+      <div class="form-row">
+        <label for="newPassword">New password</label>
+        <div class="password-field">
+          <input type="password" id="newPassword" placeholder="At least 6 characters" autocomplete="new-password" minlength="6" required>
+          <button type="button" class="password-toggle" data-target="newPassword" title="Show password">&#128065;</button>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" id="resetConfirmBtn">Set new password</button>
+    </form>
+    <p class="form-hint" id="resetConfirmStatus"></p>
+  </div>
+</div>
+
+<div class="container" id="appContainer" style="display:none;">
+
+  <nav class="tab-nav">
+    <button class="tab-btn active" data-view="today">Today</button>
+    <button class="tab-btn" data-view="habits">Habits</button>
+    <button class="tab-btn" data-view="week">Weekly Grid</button>
+    <button class="tab-btn" data-view="achievements">Achievements</button>
+    <button class="tab-btn" data-view="review">Weekly Review</button>
+  </nav>
+
+  <!-- TODAY VIEW -->
+  <section class="view active" id="view-today">
+    <div class="stat-grid" id="statGrid"></div>
+    <div class="card">
+      <p class="section-title">&#128197; Today's Habits</p>
+      <p class="section-sub" id="todayDateLabel"></p>
+      <div id="todayList"></div>
+      <div class="empty-state" id="todayEmpty" style="display:none;">
+        <span class="emoji">&#9971;</span>
+        <p>Nothing scheduled for today. Enjoy the rest, or add a new habit.</p>
+        <button class="btn btn-primary" id="todayEmptyAddBtn">+ Add Habit</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- HABITS VIEW -->
+  <section class="view" id="view-habits">
+    <div class="card">
+      <div class="list-header">
+        <div>
+          <p class="section-title">&#128203; All Habits</p>
+          <p class="section-sub" style="margin-bottom:0;">Manage, edit, archive or delete your habits</p>
+        </div>
+        <select id="filterArchived">
+          <option value="active">Active</option>
+          <option value="all">All</option>
+          <option value="archived">Archived</option>
+        </select>
+      </div>
+      <div id="habitList"></div>
+      <div class="empty-state" id="habitsEmpty" style="display:none;">
+        <span class="emoji">&#10024;</span>
+        <p>No habits yet. Create your first one to start tracking.</p>
+        <button class="btn btn-primary" id="habitsEmptyAddBtn">+ Add Habit</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- WEEK GRID VIEW -->
+  <section class="view" id="view-week">
+    <div class="card">
+      <div class="week-nav">
+        <button class="week-nav-btn" id="prevWeek">&#8592;</button>
+        <span class="label" id="weekLabel"></span>
+        <button class="week-nav-btn" id="nextWeek">&#8594;</button>
+      </div>
+      <div class="grid-table-wrap">
+        <table class="grid-table" id="weekGridTable"></table>
+      </div>
+      <div class="empty-state" id="weekEmpty" style="display:none;">
+        <span class="emoji">&#128197;</span>
+        <p>No habits to display. Add one to see your weekly grid.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ACHIEVEMENTS VIEW -->
+  <section class="view" id="view-achievements">
+    <div class="card">
+      <p class="section-title">&#127942; Achievements</p>
+      <p class="section-sub">Milestones you unlock by showing up consistently</p>
+      <div id="achievementsList"></div>
+    </div>
+  </section>
+
+  <!-- WEEKLY REVIEW VIEW -->
+  <section class="view" id="view-review">
+    <div class="card">
+      <p class="section-title">&#128202; Weekly Review</p>
+      <p class="section-sub" id="reviewWeekLabel"></p>
+      <div class="review-highlight-grid" id="reviewHighlights"></div>
+      <div class="form-row">
+        <label>Consistency Score (last 14 days)</label>
+        <div class="consistency-row">
+          <div class="consistency-ring" id="consistencyRing" style="--pct:0" data-pct="0"></div>
+          <p class="section-sub" style="margin:0;" id="consistencyDesc">Based on your completion rate over the last two weeks.</p>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <p class="section-title">&#128200; Per-Habit Performance</p>
+      <p class="section-sub">Weekly target progress for each active habit</p>
+      <div id="reviewHabitList"></div>
+    </div>
+  </section>
+
+</div>
+
+<button class="fab" id="fabAdd" title="Add habit" style="display:none;">+</button>
+
+<!-- Habit Modal -->
+<div class="modal-overlay" id="habitModalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="habitModalTitle">New Habit</h2>
+      <button class="icon-btn" id="habitModalCloseBtn">&#10005;</button>
+    </div>
+    <form id="habitForm">
+      <input type="hidden" id="habitId">
+      <div class="form-row">
+        <label for="habitName">Name *</label>
+        <input type="text" id="habitName" maxlength="60" placeholder="e.g. Morning run" required>
+      </div>
+      <div class="form-row">
+        <label for="habitDesc">Description (optional)</label>
+        <textarea id="habitDesc" maxlength="200" placeholder="Why this habit matters, or how to do it..."></textarea>
+      </div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>Priority</label>
+          <div class="segmented" id="priorityPicker">
+            <button type="button" data-val="1">&#128308; High</button>
+            <button type="button" data-val="2">&#128992; Medium</button>
+            <button type="button" data-val="3" class="selected">&#128309; Low</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Time of Day</label>
+          <div class="segmented" id="timePicker">
+            <button type="button" data-val="any" class="selected">Any</button>
+            <button type="button" data-val="morning">&#9728;&#65039; AM</button>
+            <button type="button" data-val="afternoon">&#127774; PM</button>
+            <button type="button" data-val="evening">&#127769; Eve</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Frequency</label>
+        <div class="segmented" id="frequencyPicker">
+          <button type="button" data-val="daily" class="selected">Daily</button>
+          <button type="button" data-val="weekly">X times / week</button>
+          <button type="button" data-val="scheduled">Specific days</button>
+        </div>
+      </div>
+      <div class="form-row" id="targetRow" style="display:none;">
+        <label for="habitTarget">Target per week</label>
+        <input type="number" id="habitTarget" min="1" max="7" value="3">
+      </div>
+      <div class="form-row" id="scheduledRow" style="display:none;">
+        <label>Scheduled Days</label>
+        <div class="day-picker" id="dayPicker">
+          <button type="button" data-day="1">M</button>
+          <button type="button" data-day="2">T</button>
+          <button type="button" data-day="3">W</button>
+          <button type="button" data-day="4">T</button>
+          <button type="button" data-day="5">F</button>
+          <button type="button" data-day="6">S</button>
+          <button type="button" data-day="0">S</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <label for="habitMin">Minimum version (optional)</label>
+        <input type="text" id="habitMin" maxlength="60" placeholder="e.g. Just 5 minutes counts on hard days">
+        <p class="form-hint">A smaller fallback target for tough days — logged as a recovery, not a full completion.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="habitModalCancelBtn">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Habit</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Complete/Note Modal -->
+<div class="modal-overlay" id="noteModalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="noteModalTitle">Add a note</h2>
+      <button class="icon-btn" id="noteModalCloseBtn">&#10005;</button>
+    </div>
+    <div class="form-row">
+      <label for="noteText">Note (optional)</label>
+      <textarea id="noteText" maxlength="200" placeholder="How did it go?"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" id="noteSkipBtn">Skip</button>
+      <button type="button" class="btn btn-primary" id="noteSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal-overlay" id="confirmModalOverlay">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-header">
+      <h2 id="confirmTitle">Are you sure?</h2>
+      <button class="icon-btn" id="confirmModalCloseBtn">&#10005;</button>
+    </div>
+    <p class="section-sub" id="confirmMessage" style="margin-bottom:0;"></p>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" id="confirmCancelBtn">Cancel</button>
+      <button type="button" class="btn btn-danger" id="confirmActionBtn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
