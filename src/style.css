@@ -743,4 +743,29 @@ select#filterArchived { max-width: 160px; }
   .form-grid { grid-template-columns: 1fr; }
   .stat-card .stat-value { font-size: 20px; }
   .container { padding: 0 14px; }
+
+  .app-header-inner {
+    padding: 12px 14px;
+    flex-wrap: nowrap;
+  }
+  .brand h1 { font-size: 15px; }
+  .brand .sub { display: none; } /* date under the title just adds a wrap risk on narrow screens */
+  .header-actions { gap: 6px; }
+  #userEmailLabel {
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 10.5px;
+  }
+  .theme-toggle { width: 36px; height: 36px; font-size: 15px; flex-shrink: 0; }
+  #signOutBtn { padding: 8px 12px; font-size: 12.5px; flex-shrink: 0; white-space: nowrap; }
+
+  .tab-nav {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tab-nav::-webkit-scrollbar { display: none; }
+  .tab-btn { flex: 0 0 auto; }
 }
