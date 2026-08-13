@@ -12,6 +12,7 @@ import { renderHabitsList } from './ui/views/habitsList.js';
 import { renderWeekGrid, initWeekGridNav } from './ui/views/weekGrid.js';
 import { renderAchievements } from './ui/views/achievements.js';
 import { renderReview } from './ui/views/review.js';
+import { initTabNavScroll } from './ui/tabNav.js';
 
 let state = { theme: loadTheme(), habits: [] };
 let currentUserId = null;
@@ -73,6 +74,7 @@ function wireOnce() {
   initConfetti();
   initModals({ state, persist, renderAll });
   initWeekGridNav(() => renderWeekGrid(state));
+  initTabNavScroll();
   document.getElementById('filterArchived').addEventListener('change', () => renderHabitsList(state));
 }
 

@@ -89,13 +89,16 @@
 
 <div class="container" id="appContainer" style="display:none;">
 
-  <nav class="tab-nav">
-    <button class="tab-btn active" data-view="today">Today</button>
-    <button class="tab-btn" data-view="habits">Habits</button>
-    <button class="tab-btn" data-view="week">Weekly Grid</button>
-    <button class="tab-btn" data-view="achievements">Achievements</button>
-    <button class="tab-btn" data-view="review">Weekly Review</button>
-  </nav>
+  <div class="tab-nav-wrap">
+    <nav class="tab-nav" id="tabNav">
+      <button class="tab-btn active" data-view="today">Today</button>
+      <button class="tab-btn" data-view="habits">Habits</button>
+      <button class="tab-btn" data-view="week">Weekly Grid</button>
+      <button class="tab-btn" data-view="achievements">Achievements</button>
+      <button class="tab-btn" data-view="review">Weekly Review</button>
+    </nav>
+    <div class="tab-nav-fade" id="tabNavFade"></div>
+  </div>
 
   <!-- TODAY VIEW -->
   <section class="view active" id="view-today">
