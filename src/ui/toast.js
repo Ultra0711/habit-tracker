@@ -1,3 +1,5 @@
+import { prefersReducedMotion } from './motion.js';
+
 export function showToast(message, opts) {
   opts = opts || {};
   const container = document.getElementById('toastContainer');
@@ -15,8 +17,13 @@ export function showToast(message, opts) {
   }
   container.appendChild(toast);
   setTimeout(() => {
-    toast.style.transition = 'opacity 0.3s ease';
+    if (prefersReducedMotion()) {
+      toast.remove();
+      return;
+    }
+    toast.style.transition = 'opacity 220ms ease, transform 220ms ease';
     toast.style.opacity = '0';
-    setTimeout(() => toast.remove(), 320);
+    toast.style.transform = 'translateY(6px)';
+    setTimeout(() => toast.remove(), 240);
   }, opts.duration || 3200);
 }

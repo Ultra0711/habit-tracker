@@ -1,6 +1,7 @@
 import { getWeekDates, fmtDate } from '../../domain/dates.js';
 import { isScheduledOn, getCompletion, isDone, weeklyTarget, weekProgress, computeStreaks, consistencyScore } from '../../domain/habits.js';
 import { escapeHtml } from '../format.js';
+import { animateCount, revealOnScroll } from '../motion.js';
 
 export function renderReview(state) {
   const dates = getWeekDates(0);
@@ -34,28 +35,40 @@ export function renderReview(state) {
   const overallPct = scheduled ? Math.round((done / scheduled) * 100) : 0;
 
   const highlights = document.getElementById('reviewHighlights');
-  highlights.innerHTML = `
-    <div class="review-highlight">
-      <div class="rh-label">Overall Progress</div>
-      <div class="rh-value">${overallPct}%</div>
-      <div class="rh-sub">${done}/${scheduled} scheduled done</div>
-    </div>
-    <div class="review-highlight">
-      <div class="rh-label">Best Performing</div>
-      <div class="rh-value">${best ? escapeHtml(best.name) : '—'}</div>
-      <div class="rh-sub">${best ? bestPct + '% of weekly target' : 'No habits yet'}</div>
-    </div>
-    <div class="review-highlight">
-      <div class="rh-label">Needs Attention</div>
-      <div class="rh-value">${weakest ? escapeHtml(weakest.name) : '—'}</div>
-      <div class="rh-sub">${weakest ? weakestPct + '% of weekly target' : 'No habits yet'}</div>
-    </div>
-    <div class="review-highlight">
-      <div class="rh-label">Longest Streak</div>
-      <div class="rh-value">${longestOverall} days</div>
-      <div class="rh-sub">Across all habits</div>
-    </div>
-  `;
+  if (!highlights.dataset.built) {
+    highlights.innerHTML = `
+      <div class="review-highlight">
+        <div class="rh-label">Overall Progress</div>
+        <div class="rh-value" id="rh-overall"></div>
+        <div class="rh-sub" id="rh-overall-sub"></div>
+      </div>
+      <div class="review-highlight">
+        <div class="rh-label">Best Performing</div>
+        <div class="rh-value" id="rh-best"></div>
+        <div class="rh-sub" id="rh-best-sub"></div>
+      </div>
+      <div class="review-highlight">
+        <div class="rh-label">Needs Attention</div>
+        <div class="rh-value" id="rh-weakest"></div>
+        <div class="rh-sub" id="rh-weakest-sub"></div>
+      </div>
+      <div class="review-highlight">
+        <div class="rh-label">Longest Streak</div>
+        <div class="rh-value" id="rh-longest"></div>
+        <div class="rh-sub">Across all habits</div>
+      </div>
+    `;
+    highlights.dataset.built = '1';
+    revealOnScroll(highlights);
+  }
+
+  animateCount(document.getElementById('rh-overall'), overallPct, { format: (n) => `${n}%` });
+  document.getElementById('rh-overall-sub').textContent = `${done}/${scheduled} scheduled done`;
+  document.getElementById('rh-best').textContent = best ? best.name : '—';
+  document.getElementById('rh-best-sub').textContent = best ? bestPct + '% of weekly target' : 'No habits yet';
+  document.getElementById('rh-weakest').textContent = weakest ? weakest.name : '—';
+  document.getElementById('rh-weakest-sub').textContent = weakest ? weakestPct + '% of weekly target' : 'No habits yet';
+  animateCount(document.getElementById('rh-longest'), longestOverall, { format: (n) => `${n} days` });
 
   const score = consistencyScore(state.habits, 14);
   const ring = document.getElementById('consistencyRing');
@@ -79,7 +92,10 @@ export function renderReview(state) {
     const prog = weekProgress(h, dates);
     const row = document.createElement('div');
     row.className = 'review-habit-row';
+    row.dataset.habitId = h.id;
     row.innerHTML = `<span class="rhr-name">${escapeHtml(h.name)}</span><span class="rhr-stat">${prog}/${target} this week</span>`;
     reviewList.appendChild(row);
   });
+
+  revealOnScroll(reviewList, { getKey: (el) => el.dataset.habitId });
 }

@@ -12,7 +12,8 @@ import { renderHabitsList } from './ui/views/habitsList.js';
 import { renderWeekGrid, initWeekGridNav } from './ui/views/weekGrid.js';
 import { renderAchievements } from './ui/views/achievements.js';
 import { renderReview } from './ui/views/review.js';
-import { initTabNavScroll } from './ui/tabNav.js';
+import { initTabNavScroll, moveIndicatorToActiveTab } from './ui/tabNav.js';
+import { prefersReducedMotion } from './ui/motion.js';
 
 let state = { theme: loadTheme(), habits: [] };
 let currentUserId = null;
@@ -63,11 +64,26 @@ function wireOnce() {
 
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
+      if (btn.classList.contains('active')) return; // already on this tab — nothing to transition
+
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       btn.classList.add('active');
-      document.getElementById('view-' + btn.dataset.view).classList.add('active');
+      moveIndicatorToActiveTab();
+
+      const nextView = document.getElementById('view-' + btn.dataset.view);
+      nextView.classList.add('active');
       renderAll();
+
+      if (!prefersReducedMotion()) {
+        // Re-trigger the enter animation even if this class name was left over from
+        // a previous switch: force a reflow between remove/add so the animation
+        // restarts rather than being a no-op class toggle.
+        nextView.classList.remove('view-entering');
+        void nextView.offsetWidth;
+        nextView.classList.add('view-entering');
+        nextView.addEventListener('animationend', () => nextView.classList.remove('view-entering'), { once: true });
+      }
     });
   });
 

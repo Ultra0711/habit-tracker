@@ -2,6 +2,7 @@ import { getWeekDates, fmtDate, todayStr, DAY_LABELS } from '../../domain/dates.
 import { isScheduledOn, getCompletion, isDone, isRecovery } from '../../domain/habits.js';
 import { escapeHtml } from '../format.js';
 import { cycleCompletion } from '../modals.js';
+import { revealOnScroll } from '../motion.js';
 
 let weekOffset = 0;
 
@@ -39,7 +40,7 @@ export function renderWeekGrid(state) {
   let tbody = '<tbody>';
   active.sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
   active.forEach(habit => {
-    tbody += `<tr><td title="${escapeHtml(habit.name)}">${escapeHtml(habit.name)}</td>`;
+    tbody += `<tr data-habit-row="${habit.id}"><td title="${escapeHtml(habit.name)}">${escapeHtml(habit.name)}</td>`;
     dates.forEach(d => {
       const dStr = fmtDate(d);
       const scheduled = isScheduledOn(habit, d);
@@ -69,4 +70,12 @@ export function renderWeekGrid(state) {
       cycleCompletion(cell.dataset.habit, cell.dataset.date);
     });
   });
+
+  // Reveal whole rows, not individual day cells — item 10 of the motion spec
+  // explicitly calls out not animating every table cell. trackingKey is the
+  // <table> itself since <tbody> is a brand new element every render (it's
+  // replaced wholesale via table.innerHTML above), so it can't hold the
+  // "already revealed" memory itself.
+  const tbodyEl = table.querySelector('tbody');
+  revealOnScroll(tbodyEl, { childSelector: 'tr', getKey: (el) => el.dataset.habitRow, trackingKey: table });
 }

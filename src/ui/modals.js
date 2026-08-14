@@ -2,6 +2,7 @@ import { genId, getCompletion, setCompletion, removeCompletion, computeStreaks }
 import { todayStr } from '../domain/dates.js';
 import { fireConfetti } from './confetti.js';
 import { showToast } from './toast.js';
+import { markPendingPulse, closeModal, openModal, prefersReducedMotion } from './motion.js';
 
 // `persist` has one method per mutation kind (insertHabit, updateHabit, deleteHabit,
 // archiveHabit, upsertCompletion, deleteCompletion) so each call site persists exactly
@@ -16,6 +17,17 @@ let selectedDays = [];
 
 let noteModalCtx = null;
 let confirmAction = null;
+
+// Small one-shot confirmation animation on the FAB after a new habit is
+// successfully created — not continuous, just a single settle on success.
+function pulseFab() {
+  const fab = document.getElementById('fabAdd');
+  if (!fab || prefersReducedMotion()) return;
+  fab.classList.remove('confirm-pulse');
+  void fab.offsetWidth; // force reflow so the animation restarts if triggered twice quickly
+  fab.classList.add('confirm-pulse');
+  fab.addEventListener('animationend', () => fab.classList.remove('confirm-pulse'), { once: true });
+}
 
 export function initModals(ctx) {
   state = ctx.state;
@@ -45,6 +57,7 @@ export async function cycleCompletion(habitId, dateStr) {
   } else if (existing.status === 'done') {
     if (habit.minimumVersion) {
       setCompletion(habit, dateStr, 'recovery', existing.note);
+      markPendingPulse(`${habitId}:${dateStr}`);
       renderAll();
       await persist.upsertCompletion(habitId, dateStr, 'recovery', existing.note);
     } else {
@@ -75,12 +88,12 @@ function openNoteModal(habitId, dateStr, status) {
   noteModalCtx = { habitId, dateStr, status };
   document.getElementById('noteText').value = '';
   document.getElementById('noteModalTitle').textContent = status === 'recovery' ? 'Recovery day' : 'Mark complete';
-  document.getElementById('noteModalOverlay').classList.add('open');
+  openModal(document.getElementById('noteModalOverlay'));
   document.getElementById('noteText').focus();
 }
 
 function closeNoteModal() {
-  document.getElementById('noteModalOverlay').classList.remove('open');
+  closeModal(document.getElementById('noteModalOverlay'));
   noteModalCtx = null;
 }
 
@@ -105,6 +118,7 @@ async function finalizeNoteCompletion() {
     habit.longestStreakCache = Math.max(prevLongest, after.longest);
   }
 
+  markPendingPulse(`${habitId}:${dateStr}`);
   closeNoteModal();
   renderAll();
 
@@ -145,11 +159,11 @@ export function openConfirm(title, message, onConfirm) {
   document.getElementById('confirmTitle').textContent = title;
   document.getElementById('confirmMessage').textContent = message;
   confirmAction = onConfirm;
-  document.getElementById('confirmModalOverlay').classList.add('open');
+  openModal(document.getElementById('confirmModalOverlay'));
 }
 
 function closeConfirmModal() {
-  document.getElementById('confirmModalOverlay').classList.remove('open');
+  closeModal(document.getElementById('confirmModalOverlay'));
   confirmAction = null;
 }
 
@@ -229,6 +243,7 @@ function wireHabitModal() {
     closeHabitModal();
     renderAll();
     showToast(wasEditing ? 'Habit updated.' : `"${name}" added \u{1F44D}`);
+    if (!wasEditing) pulseFab();
 
     if (wasEditing) {
       await persist.updateHabit(habit);
@@ -260,12 +275,12 @@ export function openHabitModal(habitId) {
   syncDayPicker();
   updateFrequencyRows();
 
-  document.getElementById('habitModalOverlay').classList.add('open');
+  openModal(document.getElementById('habitModalOverlay'));
   document.getElementById('habitName').focus();
 }
 
 function closeHabitModal() {
-  document.getElementById('habitModalOverlay').classList.remove('open');
+  closeModal(document.getElementById('habitModalOverlay'));
   editingHabitId = null;
 }
 

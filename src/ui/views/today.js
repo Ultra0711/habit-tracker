@@ -2,16 +2,54 @@ import { getWeekDates, todayStr, fmtDate } from '../../domain/dates.js';
 import { isScheduledOn, getCompletion, isDone, isRecovery, computeStreaks, weekProgress, weeklyTarget, totalCompletions } from '../../domain/habits.js';
 import { escapeHtml, timeIcon } from '../format.js';
 import { cycleCompletion } from '../modals.js';
+import { consumePendingPulse, revealOnScroll, animateCount } from '../motion.js';
+
+// Stat grid is built once and then updated in place on every subsequent render
+// (rather than innerHTML-replaced like the list views) specifically so its
+// progress-bar widths and numbers have DOM continuity to animate *from* — a
+// freshly recreated element has no "previous state" for a CSS transition or
+// count-up tween to transition out of.
+const STAT_GRID_TEMPLATE = `
+  <div class="stat-card">
+    <span class="stat-icon">&#9989;</span>
+    <div class="stat-value" id="stat-today"></div>
+    <div class="stat-label" id="stat-today-label">Today</div>
+    <div class="progress-bar-track"><div class="progress-bar-fill" id="stat-today-bar"></div></div>
+  </div>
+  <div class="stat-card">
+    <span class="stat-icon">&#128197;</span>
+    <div class="stat-value" id="stat-week"></div>
+    <div class="stat-label">Week Completion</div>
+    <div class="progress-bar-track"><div class="progress-bar-fill" id="stat-week-bar"></div></div>
+  </div>
+  <div class="stat-card">
+    <span class="stat-icon">&#128293;</span>
+    <div class="stat-value" id="stat-streak"></div>
+    <div class="stat-label">Best Current Streak</div>
+  </div>
+  <div class="stat-card">
+    <span class="stat-icon">&#127942;</span>
+    <div class="stat-value" id="stat-longest"></div>
+    <div class="stat-label">Longest Streak Ever</div>
+  </div>
+  <div class="stat-card">
+    <span class="stat-icon">&#128200;</span>
+    <div class="stat-value" id="stat-total"></div>
+    <div class="stat-label">Total Completions</div>
+  </div>
+`;
 
 export function renderStatGrid(state) {
   const grid = document.getElementById('statGrid');
+  if (!grid.dataset.built) {
+    grid.innerHTML = STAT_GRID_TEMPLATE;
+    grid.dataset.built = '1';
+  }
+
   const active = state.habits.filter(h => !h.archived);
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const weekDates = getWeekDates(0);
-  grid.innerHTML = buildStatGridHtml(active, today, weekDates);
-}
 
-function buildStatGridHtml(active, today, weekDates) {
   const todayScheduled = active.filter(h => isScheduledOn(h, today));
   const todayDone = todayScheduled.filter(h => isDone(getCompletion(h, todayStr())));
   const todayPct = todayScheduled.length ? Math.round((todayDone.length / todayScheduled.length) * 100) : 0;
@@ -35,35 +73,16 @@ function buildStatGridHtml(active, today, weekDates) {
     totalDoneAll += totalCompletions(h);
   });
 
-  return `
-    <div class="stat-card">
-      <span class="stat-icon">&#9989;</span>
-      <div class="stat-value">${todayDone.length}/${todayScheduled.length}</div>
-      <div class="stat-label">Today (${todayPct}%)</div>
-      <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${todayPct}%"></div></div>
-    </div>
-    <div class="stat-card">
-      <span class="stat-icon">&#128197;</span>
-      <div class="stat-value">${weekPct}%</div>
-      <div class="stat-label">Week Completion</div>
-      <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${weekPct}%"></div></div>
-    </div>
-    <div class="stat-card">
-      <span class="stat-icon">&#128293;</span>
-      <div class="stat-value">${maxCurrentStreak}</div>
-      <div class="stat-label">Best Current Streak</div>
-    </div>
-    <div class="stat-card">
-      <span class="stat-icon">&#127942;</span>
-      <div class="stat-value">${maxLongestStreak}</div>
-      <div class="stat-label">Longest Streak Ever</div>
-    </div>
-    <div class="stat-card">
-      <span class="stat-icon">&#128200;</span>
-      <div class="stat-value">${totalDoneAll}</div>
-      <div class="stat-label">Total Completions</div>
-    </div>
-  `;
+  document.getElementById('stat-today').textContent = `${todayDone.length}/${todayScheduled.length}`;
+  document.getElementById('stat-today-label').textContent = `Today (${todayPct}%)`;
+  document.getElementById('stat-today-bar').style.width = `${todayPct}%`;
+
+  animateCount(document.getElementById('stat-week'), weekPct, { format: (n) => `${n}%` });
+  document.getElementById('stat-week-bar').style.width = `${weekPct}%`;
+
+  animateCount(document.getElementById('stat-streak'), maxCurrentStreak);
+  animateCount(document.getElementById('stat-longest'), maxLongestStreak);
+  animateCount(document.getElementById('stat-total'), totalDoneAll);
 }
 
 export function renderTodayList(state) {
@@ -100,10 +119,12 @@ export function renderTodayList(state) {
     const card = document.createElement('div');
     card.className = `habit-card priority-${habit.priority}` + (isDone(c) ? ' done-today' : '') + (isRecovery(c) ? ' recovery-today' : '');
 
+    const shouldPulse = (isDone(c) || isRecovery(c)) && consumePendingPulse(`${habit.id}:${ds}`);
+
     card.innerHTML = `
       <div class="habit-row-top">
-        <button class="habit-check-btn ${isDone(c) ? 'checked' : isRecovery(c) ? 'recovery' : ''}" data-habit="${habit.id}" title="${isDone(c) ? 'Completed — click to change' : isRecovery(c) ? 'Recovery day — click to clear' : 'Mark complete'}">
-          ${isDone(c) ? '&#10003;' : isRecovery(c) ? '&#8635;' : ''}
+        <button class="habit-check-btn ${isDone(c) ? 'checked' : isRecovery(c) ? 'recovery' : ''}${shouldPulse ? ' pulse' : ''}" data-habit="${habit.id}" title="${isDone(c) ? 'Completed — click to change' : isRecovery(c) ? 'Recovery day — click to clear' : 'Mark complete'}">
+          <span class="check-mark">${isDone(c) ? '&#10003;' : isRecovery(c) ? '&#8635;' : ''}</span>
         </button>
         <div class="habit-info">
           <div class="habit-name-row">
@@ -121,9 +142,12 @@ export function renderTodayList(state) {
         </div>
       </div>
     `;
+    card.dataset.habitId = habit.id;
     list.appendChild(card);
     card.querySelector('.habit-check-btn').addEventListener('click', () => {
       cycleCompletion(habit.id, ds);
     });
   });
+
+  revealOnScroll(list, { getKey: (el) => el.dataset.habitId });
 }

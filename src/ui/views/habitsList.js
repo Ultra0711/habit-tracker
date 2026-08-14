@@ -2,6 +2,7 @@ import { getWeekDates, DAY_LABELS } from '../../domain/dates.js';
 import { computeStreaks, totalCompletions, completionPercentage, weekProgress, weeklyTarget } from '../../domain/habits.js';
 import { escapeHtml, timeIcon } from '../format.js';
 import { openHabitModal, archiveHabit, deleteHabitPermanently } from '../modals.js';
+import { revealOnScroll } from '../motion.js';
 
 export function renderHabitsList(state) {
   const list = document.getElementById('habitList');
@@ -32,6 +33,7 @@ export function renderHabitsList(state) {
 
     const card = document.createElement('div');
     card.className = `habit-card priority-${habit.priority}` + (habit.archived ? ' archived' : '');
+    card.dataset.habitId = habit.id;
     card.innerHTML = `
       <div class="habit-row-top">
         <div class="habit-info">
@@ -66,4 +68,6 @@ export function renderHabitsList(state) {
   list.querySelectorAll('[data-act="edit"]').forEach(b => b.addEventListener('click', () => openHabitModal(b.dataset.id)));
   list.querySelectorAll('[data-act="archive"]').forEach(b => b.addEventListener('click', () => archiveHabit(b.dataset.id)));
   list.querySelectorAll('[data-act="delete"]').forEach(b => b.addEventListener('click', () => deleteHabitPermanently(b.dataset.id)));
+
+  revealOnScroll(list, { getKey: (el) => el.dataset.habitId });
 }

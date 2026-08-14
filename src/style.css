@@ -34,6 +34,16 @@
   --p3: #74b9ff;
   --glass-bg-rgb: 255, 255, 255;
   --glass-border-rgb: 255, 255, 255;
+
+  /* ---- Motion system: shared timing scale, reused across all animations rather
+     than one-off durations per component (see MOTION SYSTEM section below). ---- */
+  --dur-micro: 120ms;
+  --dur-section: 220ms;
+  --dur-reveal: 380ms;
+  --dur-progress: 500ms;
+  --stagger: 55ms;
+  --ease-out: cubic-bezier(.16, .8, .3, 1);
+  --ease-in-out: cubic-bezier(.4, 0, .2, 1);
 }
 
 :root[data-theme="dark"] {
@@ -131,7 +141,7 @@ a { color: inherit; }
 }
 
 .brand h1 {
-  font-size: 17px;
+  font-size: clamp(15px, 3.6vw, 17px);
   font-weight: 800;
   margin: 0;
   letter-spacing: -0.02em;
@@ -162,6 +172,7 @@ a { color: inherit; }
 .theme-toggle:hover { border-color: var(--accent-light); transform: translateY(-1px); }
 
 .tab-nav {
+  position: relative;
   display: flex;
   gap: 4px;
   background: rgba(var(--glass-bg-rgb), 0.62);
@@ -176,6 +187,8 @@ a { color: inherit; }
 }
 
 .tab-btn {
+  position: relative;
+  z-index: 1; /* sit above .tab-indicator so its (transparent-background) label stays legible */
   flex: 1;
   padding: 9px 14px;
   border-radius: 9px;
@@ -186,19 +199,34 @@ a { color: inherit; }
   color: var(--text-muted);
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.15s ease;
+  transition: color var(--dur-section) var(--ease-out), transform var(--dur-micro) var(--ease-out);
 }
 .tab-btn:hover { color: var(--text); }
-.tab-btn.active {
+.tab-btn.active { color: #fff; }
+
+/* The moving "pill" behind the active tab — src/ui/tabNav.js positions this via
+   transform to match the active button's offsetLeft/offsetWidth, so switching
+   tabs slides the indicator instead of an instant background swap. transform-only
+   (not left/width) keeps this on the compositor thread for smooth movement,
+   including while .tab-nav is mid-scroll on mobile. */
+.tab-indicator {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  height: calc(100% - 8px);
+  border-radius: 9px;
   background: var(--accent);
-  color: #fff;
   box-shadow: 0 2px 8px rgba(var(--accent-rgb), 0.35);
+  transition: transform var(--dur-section) var(--ease-out), width var(--dur-section) var(--ease-out);
+  will-change: transform;
+  pointer-events: none;
 }
 
-.view { display: none; animation: fadeIn 0.25s ease; }
+.view { display: none; }
 .view.active { display: block; }
-
-@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+/* .view-entering's keyframe animation lives in the MOTION SYSTEM section below —
+   applied explicitly by main.js on tab switch, not tied to .active directly, so
+   it plays exactly once per switch instead of re-triggering on every re-render. */
 
 /* ---------- Cards ---------- */
 .card {
@@ -242,7 +270,7 @@ a { color: inherit; }
 .stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
 
 .stat-card .stat-icon { font-size: 18px; margin-bottom: 8px; display: block; }
-.stat-card .stat-value { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
+.stat-card .stat-value { font-size: clamp(19px, 4.6vw, 24px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
 .stat-card .stat-label { font-size: 11.5px; color: var(--text-muted); font-weight: 600; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.03em; }
 
 .progress-bar-track {
@@ -284,6 +312,7 @@ a { color: inherit; }
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
 }
 
@@ -305,8 +334,8 @@ a { color: inherit; }
 .habit-check-btn:hover { border-color: var(--accent-light); transform: scale(1.05); }
 .habit-check-btn.checked { background: var(--success); border-color: var(--success); color: #fff; }
 .habit-check-btn.recovery { background: var(--recovery); border-color: var(--recovery); color: #fff; }
-.habit-check-btn.checked.pulse { animation: pop 0.35s ease; }
-@keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.22); } 100% { transform: scale(1); } }
+/* .habit-check-btn.pulse's checkPop animation is defined in the MOTION SYSTEM
+   section below, alongside the rest of the completion-animation rules. */
 
 .habit-info { flex: 1; min-width: 0; }
 .habit-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -367,7 +396,7 @@ a { color: inherit; }
 .badge-progress-low { background: var(--accent-soft); color: var(--accent); }
 .badge-archived { background: var(--border); color: var(--text-muted); }
 
-.habit-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.habit-actions { display: flex; gap: 6px; flex-shrink: 0; margin-left: auto; }
 .icon-btn {
   background: transparent;
   border: none;
@@ -477,7 +506,8 @@ a { color: inherit; }
 .btn-danger { background: var(--danger-soft); color: var(--danger); }
 .btn-danger:hover { background: var(--danger); color: #fff; }
 .btn-block { width: 100%; justify-content: center; }
-.btn:active { transform: scale(0.97); }
+/* .btn:active's press-scale is defined once, shared with every other interactive
+   control, in the MOTION SYSTEM section below. */
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .fab {
@@ -497,10 +527,11 @@ a { color: inherit; }
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.15s ease;
+  /* transition is set by the shared MOTION SYSTEM rule below */
 }
 .fab:hover { transform: scale(1.06); }
-.fab:active { transform: scale(0.95); }
+/* .fab:active's press-scale is defined in the MOTION SYSTEM section below,
+   alongside the rest of the shared press-feedback rules. */
 
 /* ---------- Forms ---------- */
 label { font-size: 12.5px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 5px; }
@@ -566,9 +597,13 @@ textarea { resize: vertical; min-height: 56px; }
   justify-content: center;
   z-index: 100;
   padding: 16px;
-  animation: fadeIn 0.15s ease;
+  animation: overlayIn var(--dur-section) var(--ease-out);
 }
 .modal-overlay.open { display: flex; }
+/* .closing plays the reverse of the open animation; src/ui/motion.js's
+   closeModal() adds this class, waits for it to finish, then removes .open. */
+.modal-overlay.closing { animation: overlayOut var(--dur-section) var(--ease-out) forwards; }
+.modal-overlay.closing .modal { animation: modalOut var(--dur-section) var(--ease-out) forwards; }
 .modal {
   background: var(--card-bg);
   border-radius: var(--radius-lg);
@@ -578,13 +613,31 @@ textarea { resize: vertical; min-height: 56px; }
   max-height: 88vh;
   overflow-y: auto;
   padding: 24px;
-  animation: modalIn 0.2s cubic-bezier(.3,1.3,.6,1);
+  animation: modalIn var(--dur-section) var(--ease-out);
 }
-@keyframes modalIn { from { opacity: 0; transform: scale(0.94) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+@keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes overlayOut { from { opacity: 1; } to { opacity: 0; } }
+@keyframes modalIn { from { opacity: 0; transform: scale(0.98) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+@keyframes modalOut { from { opacity: 1; transform: scale(1) translateY(0); } to { opacity: 0; transform: scale(0.98) translateY(8px); } }
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
 .modal-header h2 { font-size: 17px; margin: 0; font-weight: 800; }
 .modal-footer { display: flex; gap: 8px; margin-top: 18px; }
 .modal-footer .btn { flex: 1; }
+
+/* Short viewports (landscape phones): .modal already scrolls internally via
+   max-height/overflow-y above, but a form-heavy modal (e.g. new habit) can end
+   up mostly scrollbar on a ~375px-tall screen — tighten the chrome around the
+   actual form so more of it is visible without touching the design language. */
+@media (max-height: 500px) {
+  .modal-overlay { padding: 10px; align-items: flex-start; }
+  .modal { max-height: 96vh; padding: 16px; margin-top: 10px; }
+  .modal-header { margin-bottom: 10px; }
+  .modal-header h2 { font-size: 15px; }
+  .modal .form-row { margin-bottom: 10px; }
+  .modal-footer { margin-top: 12px; }
+  .auth-gate { min-height: auto; padding: 12px; align-items: flex-start; }
+  .auth-gate-card { padding: 18px 20px; margin-top: 10px; }
+}
 
 /* ---------- Empty states ---------- */
 .empty-state { text-align: center; padding: 44px 20px; color: var(--text-muted); }
@@ -603,6 +656,7 @@ textarea { resize: vertical; min-height: 56px; }
   box-shadow: var(--shadow-sm);
 }
 .achievement-card.locked { opacity: 0.45; filter: grayscale(0.6); }
+.achievement-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
 .achievement-icon {
   width: 42px; height: 42px; border-radius: 12px;
   background: var(--accent-soft);
@@ -622,6 +676,7 @@ textarea { resize: vertical; min-height: 56px; }
   border-radius: var(--radius);
   padding: 14px;
 }
+.review-highlight:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
 .review-highlight .rh-label { font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
 .review-highlight .rh-value { font-size: 15px; font-weight: 800; margin-top: 4px; }
 .review-highlight .rh-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
@@ -680,7 +735,7 @@ textarea { resize: vertical; min-height: 56px; }
   font-size: 13px;
   font-weight: 600;
   box-shadow: 0 8px 24px rgba(0,0,0,0.25);
-  animation: toastIn 0.25s ease;
+  animation: toastIn var(--dur-section) var(--ease-out);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -746,16 +801,154 @@ select#filterArchived { max-width: 160px; }
 .auth-gate-card #resetRequestStatus.success,
 .auth-gate-card #resetConfirmStatus.success { color: var(--success); }
 
+/* =========================================================
+   MOTION SYSTEM
+   Shared keyframes/classes for section transitions, scroll-reveal, press
+   feedback, and completion animation. All GPU-friendly (transform/opacity
+   only) — see the reduced-motion override at the bottom of this block, which
+   is the single place motion gets disabled for the whole app.
+   ========================================================= */
+
+/* ---- Scroll-reveal: applied by src/ui/motion.js's revealOnScroll() ---- */
+.reveal-item {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity var(--dur-reveal) var(--ease-out), transform var(--dur-reveal) var(--ease-out);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+.reveal-item.reveal-in {
+  opacity: 1;
+  animation: revealSettle var(--dur-reveal) var(--ease-out) both;
+  animation-delay: var(--reveal-delay, 0ms);
+}
+@keyframes revealSettle {
+  0% { opacity: 0; transform: translateY(12px); }
+  70% { opacity: 1; transform: translateY(-2px); } /* the "very subtle overshoot" the motion spec asks for */
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- Section/tab transitions (.view / .view.active base rules live earlier
+   in this file, near .tab-nav — this only adds the one-shot enter animation) ---- */
+.view.view-entering {
+  animation: viewEnter var(--dur-section) var(--ease-out) both;
+}
+@keyframes viewEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- Press feedback: shared across every primary interactive control ---- */
+.btn, .icon-btn, .tab-btn, .theme-toggle, .fab, .habit-check-btn,
+.grid-check, .week-nav-btn, .password-toggle, .achievement-card,
+.day-picker button, .segmented button {
+  transition: transform var(--dur-micro) var(--ease-out), box-shadow var(--dur-micro) var(--ease-out), background var(--dur-micro) var(--ease-out), opacity var(--dur-micro) var(--ease-out);
+}
+.btn:active, .icon-btn:active, .tab-btn:active, .theme-toggle:active,
+.habit-check-btn:active, .grid-check:active, .week-nav-btn:active,
+.password-toggle:active, .day-picker button:active, .segmented button:active {
+  transform: scale(0.97);
+  opacity: 0.92;
+}
+.fab:active { transform: scale(0.94); } /* fab already has its own hover scale; press goes slightly further */
+.fab.confirm-pulse { animation: fabConfirm 420ms var(--ease-out); }
+@keyframes fabConfirm {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.12); box-shadow: 0 8px 28px rgba(var(--accent-rgb), 0.55); }
+  100% { transform: scale(1); }
+}
+
+/* ---- Achievements: newly-unlocked cards get one extra pop beyond the normal
+   scroll-reveal, so hitting a milestone reads as a distinct little celebration. ---- */
+.achievement-card.just-unlocked {
+  animation: achievementUnlock 520ms var(--ease-out);
+}
+@keyframes achievementUnlock {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.035); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.25); }
+  100% { transform: scale(1); box-shadow: none; }
+}
+
+/* ---- Habit completion: checkmark pop + card settle ---- */
+.habit-check-btn.pulse { animation: checkPop var(--dur-reveal) var(--ease-out); }
+@keyframes checkPop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+.habit-check-btn .check-mark {
+  display: inline-block;
+  transform: scale(0);
+  transition: transform 180ms var(--ease-out);
+}
+.habit-check-btn.checked .check-mark,
+.habit-check-btn.recovery .check-mark {
+  transform: scale(1);
+}
+.habit-card {
+  transition: background var(--dur-section) var(--ease-in-out), box-shadow var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out), transform var(--dur-micro) var(--ease-out);
+}
+.habit-card:active { transform: scale(0.995); }
+
+/* ---- Progress bars: width transition lives here so every progress-bar-fill
+   (stat cards, habit rows, review) animates consistently on re-render ---- */
+.progress-bar-fill {
+  transition: width var(--dur-progress) var(--ease-out);
+}
+
+/* ---- Stat / achievement / review card hover-lift already existed per-component;
+   unify the transition timing so hover and press feel like one system. ---- */
+.stat-card, .achievement-card, .review-highlight {
+  transition: transform var(--dur-micro) var(--ease-out), box-shadow var(--dur-micro) var(--ease-out);
+}
+
+/* ---- Modal open/close: .modal / .modal-overlay animations and their keyframes
+   are defined earlier in this file, right next to the rest of the modal rules,
+   so they're one lookup away from the styles they animate. ---- */
+
+/* ---- Toast slide/fade in: .toast's animation is defined earlier next to the
+   rest of the toast rules; fade-out is handled inline via an opacity transition
+   in toast.js since it needs a setTimeout-driven removal. ---- */
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-item, .reveal-item.reveal-in {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+    transition: none !important;
+  }
+  .view.view-entering { animation: none !important; }
+  .habit-check-btn.pulse { animation: none !important; }
+  .achievement-card.just-unlocked { animation: none !important; }
+  .fab.confirm-pulse { animation: none !important; }
+  .modal, .modal-overlay, .toast,
+  .modal-overlay.closing, .modal-overlay.closing .modal { animation: none !important; }
+  .btn:active, .icon-btn:active, .tab-btn:active, .theme-toggle:active,
+  .habit-check-btn:active, .grid-check:active, .week-nav-btn:active,
+  .password-toggle:active, .day-picker button:active, .segmented button:active,
+  .fab:active, .habit-card:active {
+    transform: none;
+  }
+  .tab-indicator { transition: none !important; }
+  * { scroll-behavior: auto !important; }
+}
+
+/* Medium widths (tablets, small windows): auto-fit's minmax(140px,1fr) can otherwise
+   split 5 stat cards into an awkward 4+1 or leave a wide gap in the last row —
+   pin to a deliberate 3-column grid instead of leaving it to guesswork. */
+@media (min-width: 601px) and (max-width: 900px) {
+  .stat-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 @media (max-width: 600px) {
   .form-grid { grid-template-columns: 1fr; }
-  .stat-card .stat-value { font-size: 20px; }
   .container { padding: 0 14px; }
 
   .app-header-inner {
     padding: 12px 14px;
     flex-wrap: nowrap;
   }
-  .brand h1 { font-size: 15px; }
   .brand .sub { display: none; } /* date under the title just adds a wrap risk on narrow screens */
   .header-actions { gap: 6px; }
   #userEmailLabel {
@@ -765,8 +958,8 @@ select#filterArchived { max-width: 160px; }
     white-space: nowrap;
     font-size: 10.5px;
   }
-  .theme-toggle { width: 36px; height: 36px; font-size: 15px; flex-shrink: 0; }
-  #signOutBtn { padding: 8px 12px; font-size: 12.5px; flex-shrink: 0; white-space: nowrap; }
+  .theme-toggle { width: 44px; height: 44px; font-size: 16px; flex-shrink: 0; }
+  #signOutBtn { padding: 8px 12px; font-size: 12.5px; flex-shrink: 0; white-space: nowrap; min-height: 44px; }
 
   /* ---- Tab nav: glass styling is shared with desktop (see base .tab-nav rule);
      mobile only adds horizontal scrolling, no shrinking/wrapping tabs, and the fade hint. ---- */
@@ -790,7 +983,7 @@ select#filterArchived { max-width: 160px; }
     padding: 10px 16px;
     min-width: max-content;
   }
-  .tab-btn.active {
+  .tab-indicator {
     /* keep the accent-filled active pill legible against the translucent bar */
     box-shadow: 0 2px 10px rgba(var(--accent-rgb), 0.4);
   }
@@ -827,4 +1020,13 @@ select#filterArchived { max-width: 160px; }
     align-items: center;
     text-align: center;
   }
+
+  /* ---- Touch targets: bump tap areas toward the ~44px minimum (Apple HIG / Material
+     guidance) without scaling up the glyphs inside them by the same amount. ---- */
+  .icon-btn { width: 44px; height: 44px; font-size: 15px; }
+  .habit-check-btn { width: 44px; height: 44px; }
+  .week-nav-btn { width: 44px; height: 44px; font-size: 15px; }
+  .grid-check { width: 40px; height: 40px; font-size: 14px; } /* capped below 44px: a full-width row of 7 of these must still fit without forcing table overflow beyond its existing horizontal scroll */
+  .password-toggle { width: 44px; height: 44px; }
+  .password-field input { padding-right: 50px; }
 }
