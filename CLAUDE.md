@@ -78,6 +78,18 @@ Light/dark theme is a `data-theme` attribute on `<html>`, driven entirely by CSS
 
 The Today view sorts incomplete habits first (by priority, then name) and pushes anything already completed or logged as a recovery day to the bottom, so checking something off doesn't leave it visually stranded in the middle of the still-to-do list (`src/ui/views/today.js`).
 
+### Motion system
+
+`src/ui/motion.js` is the single reusable engine behind all animation/micro-interaction behavior — timing/easing values live as CSS custom properties in `src/style.css` (`--dur-micro`, `--dur-section`, `--dur-reveal`, `--dur-progress`, `--stagger`, `--ease-out`, `--ease-in-out`). New UI should reuse these primitives rather than hand-rolling animations:
+
+- **Scroll-reveal**: `revealOnScroll(container, { childSelector, getKey, trackingKey })` uses a single shared `IntersectionObserver`. Pass `getKey` (usually reading a `data-*` attribute you set on each item, e.g. `habitId`) so already-revealed items don't replay their animation on a later re-render — required because the app's render model rebuilds list DOM from scratch every time (see "Rendering model" above). If the scanned container itself is replaced wholesale each render (e.g. weekGrid's `<tbody>`), pass `trackingKey` pointing at a stable ancestor instead, or the "already revealed" memory can never persist.
+- **Count-up numbers**: `animateCount(el, newValue, opts)` reads/writes `el.dataset.countValue` as its "previous value" memory and only animates when the value actually changed (first render and no-change are both instant). This requires the element to be a **persistent DOM node updated in place**, not recreated every render — see the stat grid (`today.js`) and weekly-review highlights (`review.js`) for the "build the template once behind a `dataset.built` guard, then update text/values in place" pattern this depends on.
+- **Completion pulse**: `markPendingPulse(key)` / `consumePendingPulse(key)` bridge the gap between a stateless render function and "did this specific completion just happen" — since the checkbox DOM node is destroyed and recreated on every render, there's no other way to know whether to play the pulse animation without this transient signal.
+- **Modals**: use `openModal(overlayEl)` / `closeModal(overlayEl)` from `motion.js` instead of toggling `.open` directly — `closeModal` plays the reverse (`.closing`) animation before removing the node from the layout, with a timeout safety net in case `animationend` never fires.
+- **Reduced motion**: `prefersReducedMotion()` is the single JS-side check, mirrored by one `@media (prefers-reduced-motion: reduce)` block in `style.css` that neutralizes every animation/transition. Any new animated behavior needs to respect both — the CSS side for pure-CSS transitions, the JS check for anything gated in code (reveal, count-up, modal close, toast, FAB pulse).
+
+The nav's active-tab indicator (`.tab-indicator` in `index.html`) is a separate absolutely-positioned pill, not a per-tab background — `moveIndicatorToActiveTab()` in `src/ui/tabNav.js` positions it via `transform: translateX()` + `width` (not `left`) so it stays on the compositor thread, and works inside the same horizontally-scrolling container as the tabs on mobile.
+
 ## Supabase schema
 
 See `supabase/migrations/` for the authoritative schema (`habits`, `completions` tables, RLS policies). Migrations are numbered and applied in order; `0001_init.sql` is Stage 2 (schema + permissive RLS, no auth), `0002_auth_rls.sql` is Stage 3 (tightens `user_id` to `not null` + FK, replaces permissive policies with `auth.uid()`-scoped ones). When the data model changes, add a new numbered migration rather than editing an already-applied one.
